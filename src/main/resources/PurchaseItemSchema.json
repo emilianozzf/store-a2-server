@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PurchaseItem",
+  "description": "Item purchased.",
+  "type": "object",
+  "properties": {
+    "ItemID": {
+      "type": "string"
+    },
+    "numberOfItems:": {
+      "type": "integer",
+      "format": "32int"
+    }
+  },
+  "required": ["ItemID", "numberOfItems:"]
+}
