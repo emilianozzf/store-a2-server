@@ -28,8 +28,12 @@ public class PurchaseServlet extends HttpServlet {
       HttpServletResponse response)
       throws ServletException, IOException {
     response.setContentType("application/json");
+
+    // Gets the http request url path information
     String urlPath = request.getPathInfo();
+    // Gets the http request body reader
     BufferedReader bodyReader = request.getReader();
+    // Reads the http request body
     StringBuilder bodyBuilder = new StringBuilder();
     String line = null;
     while ((line = bodyReader.readLine()) != null) {
@@ -38,25 +42,27 @@ public class PurchaseServlet extends HttpServlet {
     }
     String body = bodyBuilder.toString();
 
+    // Validates the url path information
     if (urlPath == null || urlPath.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       response.getWriter().write("{\"message\": \"Missing parameters!\"}");
       return;
     }
-
     String[] urlParts = urlPath.split("/");
     if (!isUrlValid(urlParts)) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       response.getWriter().write("{\"message\": \"Invalid url!\"}");
+    // Validates the body
     }  else if (!isBodyValid(body)) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       response.getWriter().write("{\"message\": \"Invalid body\"})");
+    // The request is valid!!!
     } else {
-      response.setStatus(HttpServletResponse.SC_CREATED);
       liftRideDao.createPurchase(new Purchase(Integer.parseInt(urlParts[1]),
                                               Integer.parseInt(urlParts[3]),
                                               urlParts[5],
                                               body));
+      response.setStatus(HttpServletResponse.SC_CREATED);
       response.getWriter().write("{\"message\": \"It works!\"}");
     }
   }
@@ -64,7 +70,6 @@ public class PurchaseServlet extends HttpServlet {
   protected void doGet(HttpServletRequest request,
       HttpServletResponse response)
       throws ServletException, IOException {
-
   }
 
   private boolean isUrlValid(String[] urlPath) {
