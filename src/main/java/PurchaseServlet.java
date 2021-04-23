@@ -1,9 +1,19 @@
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
+import com.amazonaws.services.dynamodbv2.model.KeyType;
+import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
+import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -15,13 +25,40 @@ import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.PutItemOutcome;
+import com.amazonaws.services.dynamodbv2.document.Table;
+import java.util.UUID;
 
 @WebServlet(name = "PurchaseServlet")
 public class PurchaseServlet extends HttpServlet {
-  private PurchaseDao liftRideDao;
+//  private PurchaseDao liftRideDao;
+  private Table table;
 
   public PurchaseServlet() {
-    this.liftRideDao = new PurchaseDao();
+//    this.liftRideDao = new PurchaseDao();
+    AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
+        .withRegion(Regions.US_EAST_1).withCredentials(new InstanceProfileCredentialsProvider(false))
+        .build();
+    DynamoDB dynamoDB = new DynamoDB(client);
+
+    String tableName = "Purchases1";
+    try {
+      table = dynamoDB.createTable(tableName,
+          Arrays.asList(new KeySchemaElement("purchaseID", KeyType.HASH)),
+          Arrays.asList(new AttributeDefinition("purchaseID", ScalarAttributeType.S)),
+          new ProvisionedThroughput(10L, 3000L));
+      table.waitForActive();
+    }
+    catch (Exception e) {
+      System.err.println("Unable to create table: ");
+      System.err.println(e.getMessage());
+    }
+    table = dynamoDB.getTable(tableName);
   }
 
   protected void doPost(HttpServletRequest request,
@@ -58,10 +95,31 @@ public class PurchaseServlet extends HttpServlet {
       response.getWriter().write("{\"message\": \"Invalid body\"})");
     // The request is valid!!!
     } else {
-      liftRideDao.createPurchase(new Purchase(Integer.parseInt(urlParts[1]),
-                                              Integer.parseInt(urlParts[3]),
-                                              urlParts[5],
-                                              body));
+//      liftRideDao.createPurchase(new Purchase(Integer.parseInt(urlParts[1]),
+//                                              Integer.parseInt(urlParts[3]),
+//                                              urlParts[5],
+//                                              body));
+      final String purchaseID = UUID.randomUUID().toString();
+      int storeID = Integer.parseInt(urlParts[1]);
+      int custID = Integer.parseInt(urlParts[3]);
+      String date = urlParts[5];
+      String items = body;
+
+      final Map<String, Object> infoMap = new HashMap<String, Object>();
+      infoMap.put("storeID", storeID);
+      infoMap.put("custID", custID);
+      infoMap.put("date", date);
+      infoMap.put("items", items);
+
+      try {
+        PutItemOutcome outcome = table
+            .putItem(new Item().withPrimaryKey("purchaseID", purchaseID).withMap("infos", infoMap));
+      }
+      catch (Exception e) {
+        System.err.println("Unable to add purchase item");
+        System.err.println(e.getMessage());
+      }
+
       response.setStatus(HttpServletResponse.SC_CREATED);
       response.getWriter().write("{\"message\": \"It works!\"}");
     }
